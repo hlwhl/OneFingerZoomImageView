@@ -5,6 +5,8 @@ import android.app.usage.UsageEvents;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Matrix;
+import android.graphics.PointF;
+import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -13,18 +15,17 @@ import android.view.ViewConfiguration;
 import android.widget.ImageView;
 import android.widget.Toast;
 
-@SuppressLint("AppCompatCustomView")
-public class OneFingerZoomImageView extends ImageView {
+public class OneFingerZoomImageView extends AppCompatImageView {
 
     private static final int DOUBLE_TAPPING_DELTA = ViewConfiguration.getTapTimeout() + 100;
-    private static final int DP_PER_1X = 10000   ;
+    private static final int DP_PER_1X = 1000   ;
 
     private Matrix matrix = new Matrix();
+    private Matrix currentMatrix = new Matrix();
 
     private long startTime = 0;
     private boolean isDoubleTapping = false;
-    private float startX;
-    private float startY;
+    private PointF startPoint = new PointF();
     private float scale;
 
     public OneFingerZoomImageView(Context context) {
@@ -44,16 +45,18 @@ public class OneFingerZoomImageView extends ImageView {
         setScaleType(ScaleType.MATRIX);
         Log.e("zoooming", "event:"+event);
         if(event.getAction() == MotionEvent.ACTION_DOWN){
-            startX = event.getX();
-            startY = event.getY();
+            currentMatrix = this.getImageMatrix();
+            startPoint.x = event.getX();
+            startPoint.y = event.getY();
 
         }
 
-        matrix.set(this.getImageMatrix());
-
+        //拖动
         if(event.getAction() == MotionEvent.ACTION_MOVE && !isDoubleTapping){
-            matrix.postTranslate((event.getX()-startX)/50,(event.getY()-startY)/50 );
+            matrix.set(currentMatrix);
+            matrix.postTranslate((event.getX()-startPoint.x)/10,(event.getY()-startPoint.y)/10 );
             this.setImageMatrix(matrix);
+            return false;
         }
 
         if (event.getPointerCount() != 1) {
@@ -72,8 +75,8 @@ public class OneFingerZoomImageView extends ImageView {
         } else if (event.getAction() == MotionEvent.ACTION_DOWN && !isDoubleTapping
                 && currentTime - startTime < DOUBLE_TAPPING_DELTA) {
             isDoubleTapping = true;
-            startX = event.getX();
-            startY = event.getY();
+            startPoint.x = event.getX();
+            startPoint.y = event.getY();
 
             Toast.makeText(getContext(), "moving", Toast.LENGTH_SHORT).show();
 
@@ -83,7 +86,7 @@ public class OneFingerZoomImageView extends ImageView {
             return true;
         } else if (event.getAction() == MotionEvent.ACTION_MOVE) {
             if (isDoubleTapping) {
-                float delta = px2dp((int) (startY - event.getY()));
+                float delta = px2dp((int) (startPoint.y - event.getY()));
                 float scaleDelta = delta / DP_PER_1X;
                 scale = 1 - scaleDelta;
                 Toast.makeText(getContext(), "zooming", Toast.LENGTH_SHORT).show();
@@ -99,6 +102,7 @@ public class OneFingerZoomImageView extends ImageView {
 
     private void onZooming(double scale){
         Log.e("zoooming", "scale:"+scale);
+        matrix.set(currentMatrix);
         matrix.postScale((float) scale, (float) scale);
         this.setImageMatrix(matrix);
     }
